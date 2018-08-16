@@ -41,7 +41,6 @@
         (vec-equals? [rx ry] (:location (:wolf state)))))))
 
 (defn possible-moves-for [state object-to-move type]
-  (println object-to-move)
   (let [all-moves (combo/cartesian-product [object-to-move] (type moves))
         applicated-moves (map
                             (fn [[from delta]]
@@ -70,10 +69,13 @@
       (= 0 (count wolf-moves)) :won
       :else :ongoing)))
 
-(defn apply-move-sheep [state sheep-to-move to]
+
+(defmulti apply-move (fn [type state move] type))
+
+(defmethod apply-move :sheep [type state to sheep-to-move]
   (assoc-in state [:sheep (:index sheep-to-move) :location]  to))
 
-(defn apply-move-wolf [state to]
+(defmethod apply-move :wolf [type state to]
   (assoc-in state [:wolf :location] to))
 
 (defn find-dragging [state]
@@ -93,19 +95,54 @@
   (let [dragging-sheep (get (:sheep state) (:dragging state))
         possible-places-for-sheep (map second (possible-moves-for state dragging-sheep :sheep))]
     (case dragging-sheep
-       nil state
+       nil [false state]
        (let [valid-move (equal-vector-in-list? possible-places-for-sheep coordinate)
              stopped-dragging-state (-> state
                                       (assoc-in ,,, [:sheep (:index dragging-sheep)] (assoc dragging-sheep :dragging false))
                                       (assoc ,,, :dragging nil))]
         (if valid-move
-             (apply-move-sheep stopped-dragging-state dragging-sheep coordinate)
-             stopped-dragging-state)))))
+             [true (apply-move :sheep stopped-dragging-state coordinate dragging-sheep)]
+             [false stopped-dragging-state])))))
+
+(def wolf-won-score 10)
+(def wolf-lost-score -10)
+
+(defmulti value-of-move (fn [type state move] type))
+
+(defmethod value-of-move :sheep [type state [sheep to]]
+  (let [applied-move (apply-move :sheep state to sheep)]
+    (case (game-result applied-move)
+      :won -10
+      :lost 10
+      :ongoing (let [wolf-moves (map #(possible-moves-for applied-move % :wolf) (:wolf applied-move))
+                     move-scores (map #(value-of-move :wolf applied-move %) wolf-moves)]
+                (reduce + move-scores)))))
+
+(defmethod value-of-move :wolf [type state move]
+  (let [applied-move (apply-move :wolf state (second move))]
+    (case (game-result applied-move)
+      :won -10
+      :lost 10
+      :ongoing (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
+                     move-scores (map #(value-of-move :sheep applied-move %) sheep-moves)]
+                (reduce + move-scores)))))
+
+(defn minimax [state]
+  (let [wolf-moves (possible-moves-for state (:wolf state) :wolf)
+        values-of-moves (map (fn [move] [move (value-of-move :wolf state move)]) wolf-moves)]
+    (first (max-key #(second %) values-of-moves))))
+
 
 (defn handle-release-click [state coordinate]
-  (let [after-move (check-move state coordinate)
-        result (game-result after-move)]
-    (assoc after-move :result result)))
+  (let [[move-done after-move] (check-move state coordinate)
+         result (game-result after-move)
+         [[wolf best-move-for-wolf] score] (minimax after-move)]
+    (print "Minimax" best-move-for-wolf score)
+    (case result
+      :won (assoc after-move :result :won)
+      :lost (assoc after-move :result :lost)
+      (if move-done (apply-move :wolf after-move best-move-for-wolf) after-move))))
+
 
 (defn handle-square-click [state coordinate]
   (case (:result state)
@@ -116,42 +153,3 @@
                    (assoc-in ,,, [:sheep (:index clicked-sheep)] (assoc clicked-sheep :dragging true))
                    (assoc ,,, :dragging (:index clicked-sheep)))))
     state))
-
-
-(def wolf-won-score 10)
-(def wolf-lost-score -10)
-
-(defn value-of-sheep-move [state [sheep to]]
-  (let [applied-move (apply-move-sheep state sheep to)]
-    (case game-result applied-move
-      :won -10
-      :lost 10
-      :ongoing (let [wolf-moves (map #(possible-moves-for applied-move % :wolf) (:wolf applied-move))
-                     move-scores (map #(value-of-wolf-move applied-move %) wolf-moves)]
-                (reduce + move-scores)))))
-
-
-
-(defn value-of-wolf-move [state move]
-  (let [applied-move (apply-move-wolf state (second move))]
-    (case game-result applied-move
-      :won -10
-      :lost 10
-      :ongoing (let [sheep-moves (map #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
-                     move-scores (map #(value-of-sheep-score applied-move %) sheep-moves)]
-                (reduce + move-scores)))))
-
-
-
-(defn minimax [state]
-
-  (let [wolf-moves (possible-moves-for state (:wolf state) :wolf)
-        _ (println wolf-moves)
-        values-of-moves (map (fn [move] ([move (value-of-wolf-move state move)])) wolf-moves)]))
-
-
-
-
-
-
-(print (minimax (new-game)))
