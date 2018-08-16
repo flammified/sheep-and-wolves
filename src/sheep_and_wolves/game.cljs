@@ -65,6 +65,7 @@
   (let [sheep-location (map :location (:sheep state))
         wolf-moves (possible-moves-for state (:wolf state) :wolf)]
     (cond
+      (= 0 (second (:location (:wolf state)))) :lost
       (wolf-behind-sheep? state) :lost
       (= 0 (count wolf-moves)) :won
       :else :ongoing)))
@@ -112,8 +113,8 @@
 (defmethod value-of-move :sheep [type state [sheep to]]
   (let [applied-move (apply-move :sheep state to sheep)]
     (case (game-result applied-move)
-      :won -10
-      :lost 10
+      :won wolf-lost-score
+      :lost wolf-won-score
       :ongoing (let [wolf-moves (map #(possible-moves-for applied-move % :wolf) (:wolf applied-move))
                      move-scores (map #(value-of-move :wolf applied-move %) wolf-moves)]
                 (reduce + move-scores)))))
@@ -121,8 +122,8 @@
 (defmethod value-of-move :wolf [type state move]
   (let [applied-move (apply-move :wolf state (second move))]
     (case (game-result applied-move)
-      :won -10
-      :lost 10
+      :won wolf-lost-score
+      :lost wolf-won-score
       :ongoing (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
                      move-scores (map #(value-of-move :sheep applied-move %) sheep-moves)]
                 (reduce + move-scores)))))
