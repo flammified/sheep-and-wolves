@@ -70,8 +70,11 @@
       (= 0 (count wolf-moves)) :won
       :else :ongoing)))
 
-(defn apply-move [state sheep-to-move to]
+(defn apply-move-sheep [state sheep-to-move to]
   (assoc-in state [:sheep (:index sheep-to-move) :location]  to))
+
+(defn apply-move-wolf [state to]
+  (assoc-in state [:wolf :location] to))
 
 (defn find-dragging [state]
   (first (filter
@@ -96,7 +99,7 @@
                                       (assoc-in ,,, [:sheep (:index dragging-sheep)] (assoc dragging-sheep :dragging false))
                                       (assoc ,,, :dragging nil))]
         (if valid-move
-             (apply-move stopped-dragging-state dragging-sheep coordinate)
+             (apply-move-sheep stopped-dragging-state dragging-sheep coordinate)
              stopped-dragging-state)))))
 
 (defn handle-release-click [state coordinate]
@@ -115,14 +118,39 @@
     state))
 
 
-(defn value-of-wolf-move [state move] "hi")
+(def wolf-won-score 10)
+(def wolf-lost-score -10)
+
+(defn value-of-sheep-move [state [sheep to]]
+  (let [applied-move (apply-move-sheep state sheep to)]
+    (case game-result applied-move
+      :won -10
+      :lost 10
+      :ongoing (let [wolf-moves (map #(possible-moves-for applied-move % :wolf) (:wolf applied-move))
+                     move-scores (map #(value-of-wolf-move applied-move %) wolf-moves)]
+                (reduce + move-scores)))))
+
+
+
+(defn value-of-wolf-move [state move]
+  (let [applied-move (apply-move-wolf state (second move))]
+    (case game-result applied-move
+      :won -10
+      :lost 10
+      :ongoing (let [sheep-moves (map #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
+                     move-scores (map #(value-of-sheep-score applied-move %) sheep-moves)]
+                (reduce + move-scores)))))
+
 
 
 (defn minimax [state]
 
   (let [wolf-moves (possible-moves-for state (:wolf state) :wolf)
         _ (println wolf-moves)
-        values-of-moves (map #(value-of-wolf-move state %) wolf-moves)]))
+        values-of-moves (map (fn [move] ([move (value-of-wolf-move state move)])) wolf-moves)]))
+
+
+
 
 
 

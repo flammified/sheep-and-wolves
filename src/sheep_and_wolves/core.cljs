@@ -6,7 +6,7 @@
   (:require-macros [sheep-and-wolves.music :refer [build-for-cljs]]))
 
 (defonce canvas (p/create-game 401 401))
-(println canvas)
+
 (def main-screen
   (reify p/Screen
     (on-show [this]
