@@ -5,7 +5,8 @@
             [sheep-and-wolves.display :as display])
   (:require-macros [sheep-and-wolves.music :refer [build-for-cljs]]))
 
-(defonce canvas (p/create-game 401 401))
+(defonce parent (.getElementById js/document "game"))
+(defonce canvas (p/create-game 401 401 {:parent (.getElementById js/document "game")}))
 
 (def main-screen
   (reify p/Screen
@@ -21,32 +22,40 @@
 (defn convert-to-relative [screenx screeny]
   (println))
 
-(events/listen js/window "mousedown"
-  (fn [event]
-    (let [coordinate [(screen-to-square (.-clientX event)) (screen-to-square (.-clientY event))]]
-      (swap! game/state game/handle-square-click coordinate))))
-
-(events/listen js/window "keypress"
-  (fn [event]
-    (if (= 32 (.-charCode event))
-      (reset! game/state (game/new-game)))))
-
-(events/listen js/window "mouseup"
-  (fn [event]
-    (let [coordinate [(screen-to-square (.-clientX event)) (screen-to-square (.-clientY event))]]
-       (swap! game/state game/handle-release-click coordinate))))
-
-
-(events/listen js/window "mousemove"
-  (fn [event]
-    (swap! game/state assoc :mousex (.-clientX event) :mousey (.-clientY event))))
-
 (events/listen js/window "resize"
   (fn [event]
     (p/set-size canvas js/window.innerWidth js/window.innerHeight)))
 
 (doto canvas
   (p/start)
-  (p/set-screen main-screen))
+  (p/set-screen main-screen)
+  (p/listen "mousedown"
+    (fn [event]
+      (let [bounds (.getBoundingClientRect parent)
+            x (- (.-clientX event) (.-left bounds))
+            y (- (.-clientY event) (.-top bounds))
+            coordinate [(screen-to-square x) (screen-to-square y)]]
+        (swap! game/state game/handle-square-click coordinate))))
+
+  (p/listen "keypress"
+    (fn [event]
+      (if (= 32 (.-charCode event))
+        (reset! game/state (game/new-game)))))
+
+  (p/listen "mouseup"
+    (fn [event]
+      (let [bounds (.getBoundingClientRect parent)
+            x (- (.-clientX event) (.-left bounds))
+            y (- (.-clientY event) (.-top bounds))
+            coordinate [(screen-to-square x) (screen-to-square y)]]
+        (swap! game/state game/handle-release-click coordinate))))
+
+  (p/listen "mousemove"
+    (fn [event]
+      (let [bounds (.getBoundingClientRect parent)
+            x (- (.-clientX event) (.-left bounds))
+            y (- (.-clientY event) (.-top bounds))]
+        (swap! game/state assoc :mousex x :mousey y)))))
+
 
 ; uncomment to generate a song and play it!
