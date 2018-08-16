@@ -5,54 +5,48 @@
             [sheep-and-wolves.display :as display])
   (:require-macros [sheep-and-wolves.music :refer [build-for-cljs]]))
 
-(defonce game (p/create-game 800 800))
-
+(defonce canvas (p/create-game 401 401))
+(println canvas)
 (def main-screen
   (reify p/Screen
     (on-show [this]
-      (reset! state (game/new-game)))
+      (reset! game/state (game/new-game)))
     (on-hide [this])
     (on-render [this]
-
-      (p/render game (display/chessboard))
-      (doall (map #(p/render game %) (map display/sheep (:sheep @state))))
-      (p/render game (display/wolf (:wolf @state))))))
+      (p/render canvas (display/render-game @game/state)))))
 
 (defn screen-to-square [screen-loc]
   (Math/floor (/ screen-loc 50)))
 
+(defn convert-to-relative [screenx screeny]
+  (println))
+
 (events/listen js/window "mousedown"
   (fn [event]
-    (let [coordinate [(screen-to-square (.-clientX event)) (screen-to-square (.-clientY event))]
-          clicked-square (game/handle-square-click @state coordinate)]
-      ;
-      (case clicked-square
-        nil nil
-        (let [_ (println clicked-square)
-              index (:id clicked-square)
-              (!swap state assoc-in [:sheep index] clicked-square)])))))
-      ; (println @state))))
+    (let [coordinate [(screen-to-square (.-clientX event)) (screen-to-square (.-clientY event))]]
+      (swap! game/state game/handle-square-click coordinate))))
 
-
+(events/listen js/window "keypress"
+  (fn [event]
+    (if (= 32 (.-charCode event))
+      (reset! game/state (game/new-game)))))
 
 (events/listen js/window "mouseup"
   (fn [event]
-    (println "up")))
+    (let [coordinate [(screen-to-square (.-clientX event)) (screen-to-square (.-clientY event))]]
+       (swap! game/state game/handle-release-click coordinate))))
+
 
 (events/listen js/window "mousemove"
-  (fn [event]))
-    ; (swap! state assoc :text-x (.-clientX event) :text-y (.-clientY event))))
+  (fn [event]
+    (swap! game/state assoc :mousex (.-clientX event) :mousey (.-clientY event))))
 
 (events/listen js/window "resize"
   (fn [event]
-    (p/set-size game js/window.innerWidth js/window.innerHeight)))
+    (p/set-size canvas js/window.innerWidth js/window.innerHeight)))
 
-(doto game
+(doto canvas
   (p/start)
   (p/set-screen main-screen))
 
 ; uncomment to generate a song and play it!
-
-;(defonce audio (js/document.createElement "audio"))
-;(set! (.-src audio) (build-for-cljs))
-;(.play audio)
