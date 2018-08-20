@@ -1,7 +1,8 @@
 ;; Stuff to fix:
-;; dragging -> index in game
-;; possible moves -> multimethod
 ;; possible moves -> object instead of [from to]
+;; Remove sheep from possible moves
+;; clear up check-moves
+;; invert sheep and wolf
 
 (ns sheep-and-wolves.game
   (:require [clojure.math.combinatorics :as combo]))
@@ -79,11 +80,6 @@
 (defmethod apply-move :wolf [type state to]
   (assoc-in state [:wolf :location] to))
 
-(defn find-dragging [state]
-  (first (filter
-           (fn [sheep] (= (:dragging sheep) true))
-           (:sheep state))))
-
 (defn id-of-location [state [sx sy]]
   (let [identical-vectors (filter
                             (fn [sheep] (vec-equals? [sx sy] (:location sheep)))
@@ -105,34 +101,51 @@
              [true (apply-move :sheep stopped-dragging-state coordinate dragging-sheep)]
              [false stopped-dragging-state])))))
 
-(def wolf-won-score 10)
-(def wolf-lost-score -10)
+(def wolf-won-score 100)
+(def wolf-lost-score -100)
 
-(defmulti value-of-move (fn [type state move] type))
+(defmulti value-of-board (fn [type state] type))
 
-(defmethod value-of-move :sheep [type state [sheep to]]
-  (let [applied-move (apply-move :sheep state to sheep)]
-    (case (game-result applied-move)
-      :won wolf-lost-score
-      :lost wolf-won-score
-      :ongoing (let [wolf-moves (map #(possible-moves-for applied-move % :wolf) (:wolf applied-move))
-                     move-scores (map #(value-of-move :wolf applied-move %) wolf-moves)]
-                (reduce + move-scores)))))
+(defmethod value-of-board :wolf [type state]
+  (let [initial-score (- 100 (* 10 (-> state (:wolf) (:location) (second))))]
+    (+ initial-score (case (game-result state)
+                       :won -100
+                       :lost 100
+                       :ongoing 0))))
 
-(defmethod value-of-move :wolf [type state move]
-  (let [applied-move (apply-move :wolf state (second move))]
-    (case (game-result applied-move)
-      :won wolf-lost-score
-      :lost wolf-won-score
-      :ongoing (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
-                     move-scores (map #(value-of-move :sheep applied-move %) sheep-moves)]
-                (reduce + move-scores)))))
+(println (value-of-board :wolf {:wolf {:location [0 3]}}))
+
+(defmulti value-of-move (fn [type state move depth] type))
+
+(defmethod value-of-move :sheep [type state [sheep to] depth]
+  (if (= depth 5)
+    (value-of-board :wolf state)
+    (let [applied-move (apply-move :sheep state to sheep)]
+      (case (game-result applied-move)
+        :won wolf-lost-score
+        :lost wolf-won-score
+        :ongoing (let [wolf-moves (possible-moves-for applied-move (:wolf applied-move) :wolf)
+                       move-scores (map #(value-of-move :wolf applied-move % (inc depth)) wolf-moves)
+                       best-wolf-move (apply max move-scores)]
+                   best-wolf-move)))))
+
+(defmethod value-of-move :wolf [type state move depth]
+  (if (= depth 6)
+    (value-of-board :wolf state)
+    (let [applied-move (apply-move :wolf state (second move))]
+      (case (game-result applied-move)
+        :won wolf-lost-score
+        :lost wolf-won-score
+        :ongoing (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
+                       move-scores (map #(value-of-move :sheep applied-move % (inc depth)) sheep-moves)
+                       best-sheep-move (apply min move-scores)]
+                   best-sheep-move)))))
 
 (defn minimax [state]
   (let [wolf-moves (possible-moves-for state (:wolf state) :wolf)
-        values-of-moves (map (fn [move] [move (value-of-move :wolf state move)]) wolf-moves)]
-    (first (max-key #(second %) values-of-moves))))
-
+        values-of-moves (vec (map (fn [move] [move (value-of-move :wolf state move 0)]) wolf-moves))
+        best-move (apply max-key #(second %) values-of-moves)]
+    best-move))
 
 (defn handle-release-click [state coordinate]
   (let [[move-done after-move] (check-move state coordinate)
