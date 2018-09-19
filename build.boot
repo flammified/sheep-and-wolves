@@ -11,7 +11,8 @@
                   [nightlight "RELEASE"]
                   [play-cljs "1.2.0"]
                   [edna "1.5.3"]
-                  [org.clojure/math.combinatorics "0.1.4"]])
+                  [org.clojure/math.combinatorics "0.1.4"]
+                  [com.taoensso/tufte "2.0.1"]])
 
 (require
   '[nightlight.boot :refer [nightlight]]

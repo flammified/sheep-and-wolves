@@ -6,7 +6,7 @@
   (:require-macros [sheep-and-wolves.music :refer [build-for-cljs]]))
 
 (defonce parent (.getElementById js/document "game"))
-(defonce canvas (p/create-game 401 401 {:parent (.getElementById js/document "game")}))
+(defonce canvas (p/create-game 401 401 {:debug? false :parent (.getElementById js/document "game")}))
 
 (def main-screen
   (reify p/Screen
