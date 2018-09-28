@@ -1,4 +1,9 @@
-## Introduction
+# Sheep and wolves
 
-A play-cljs game in which ... well, that part is up to you. Do `boot run` to develop and `boot build` to compile a release version.
+The game of Sheep and Wolves implemented in ClojureScript using play-cljs. Playable [here].
 
+`Insert screenshot`
+
+# Run
+
+The game can be run locally using boot: just run `boot run` inside the root of the repo.
