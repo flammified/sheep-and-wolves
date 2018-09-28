@@ -74,6 +74,7 @@
 (defmulti apply-move (fn [type state move] type))
 
 (defmethod apply-move :sheep [type state to sheep-to-move]
+  (println sheep-to-move)
   (assoc-in state [:sheep (:index sheep-to-move) :location]  to))
 
 (defmethod apply-move :wolf [type state to]
@@ -112,31 +113,27 @@
                        :lost 100
                        :ongoing 0))))
 
-(defmulti value-of-move (fn [type state move depth] type))
 
-(defmethod value-of-move :sheep [type state [sheep to] depth]
+(defn value-of-move [type state [object to] depth]
   (if (= depth 0)
-    (value-of-board :wolf state)
-    (let [applied-move (apply-move :sheep state to sheep)]
+    (value-of-board type state)
+    (let [applied-move (case type
+                         :sheep (apply-move :sheep state to object)
+                         :wolf (apply-move :wolf state to))]
+
       (case (game-result applied-move)
         :won wolf-lost-score
         :lost wolf-won-score
-        :ongoing (let [wolf-moves (possible-moves-for applied-move (:wolf applied-move) :wolf)
-                       move-scores (map #(value-of-move :wolf applied-move % (dec depth)) wolf-moves)
-                       best-wolf-move (apply max move-scores)]
-                   best-wolf-move)))))
+        :ongoing (case type
+                   :wolf (let [wolf-moves (possible-moves-for applied-move (:wolf applied-move) :wolf)
+                               move-scores (map #(value-of-move :wolf applied-move % (dec depth)) wolf-moves)
+                               best-wolf-move (apply max move-scores)]
+                           best-wolf-move)
+                   :sheep (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
+                                move-scores (map #(value-of-move :sheep applied-move % (dec depth)) sheep-moves)
+                                best-sheep-move (apply min move-scores)]
+                            best-sheep-move))))))
 
-(defmethod value-of-move :wolf [type state move depth]
-  (if (= depth 0)
-    (value-of-board :wolf state)
-    (let [applied-move (apply-move :wolf state (second move))]
-      (case (game-result applied-move)
-        :won wolf-lost-score
-        :lost wolf-won-score
-        :ongoing (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
-                       move-scores (map #(value-of-move :sheep applied-move % (dec depth)) sheep-moves)
-                       best-sheep-move (apply min move-scores)]
-                   best-sheep-move)))))
 
 (defn minimax [state]
   (let [wolf-moves (possible-moves-for state (:wolf state) :wolf)
