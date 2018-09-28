@@ -42,17 +42,16 @@
         (vec-equals? [rx ry] (:location (:wolf state)))))))
 
 (defn possible-moves-for [state object-to-move type]
-  (let [all-moves (combo/cartesian-product [object-to-move] (type moves))
-        applicated-moves (map
-                            (fn [[from delta]]
-                              [object-to-move (add-vec (:location object-to-move) delta)])
-                            all-moves)
-        filtered (filter
-                   (fn
-                     [[object to]]
-                     (can-move? state to))
-                   applicated-moves)]
-    filtered))
+  (let [all-moves (combo/cartesian-product [object-to-move] (type moves))]
+    (reduce
+      (fn [valid-moves [from delta]]
+        (let [applied-move (add-vec (:location object-to-move) delta)]
+          (if (can-move? state applied-move)
+            (conj valid-moves [object-to-move applied-move])
+            valid-moves)))
+      []
+      all-moves)))
+
 
 (defn wolf-behind-sheep? [state]
   (let [[wolf-x wolf-y] (-> state :wolf :location)]
