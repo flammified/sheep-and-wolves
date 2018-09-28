@@ -29,12 +29,12 @@
   (let [[x y] (:location sheep)
         dragging (:dragging sheep)]
     (if dragging
-      [[:image {:name "wolf-512.png", :x (- (:mousex state) 24), :y (- (:mousey state) 24), :width 48, :height 48}]]
-      [[:image {:name "wolf-512.png", :x (* x square_size), :y (* y square_size), :width 48, :height 48}]])))
+      [[:image {:name "sheep-512.png", :x (- (:mousex state) 24), :y (- (:mousey state) 24), :width 48, :height 48}]]
+      [[:image {:name "sheep-512.png", :x (* x square_size), :y (* y square_size), :width 48, :height 48}]])))
 
 (defn render-wolf [wolf]
   (let [[x y] (:location wolf)]
-    [[:image {:name "sheep-512.png", :x (* x square_size), :y (* y square_size), :width 48, :height 48}]]))
+    [[:image {:name "wolf-512.png", :x (* x square_size), :y (* y square_size), :width 48, :height 48}]]))
 
 (defn render-square [[x y] color]
   [[:fill {:color color} [:rect {:x (* square_size x) :y (* square_size y) :width square_size :height square_size}]]])
