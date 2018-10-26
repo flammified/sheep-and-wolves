@@ -104,9 +104,7 @@
 (def wolf-won-score 100)
 (def wolf-lost-score -100)
 
-(defmulti value-of-board (fn [type state] type))
-
-(defmethod value-of-board :wolf [type state]
+(defn value-of-board [state]
   (let [initial-score (- 100 (* 10 (-> state (:wolf) (:location) (second))))]
     (+ initial-score (case (game-result state)
                        :won -100
@@ -116,7 +114,7 @@
 
 (defn value-of-move [type state [object to] depth]
   (if (= depth 0)
-    (value-of-board type state)
+    (value-of-board state)
     (let [applied-move (case type
                          :sheep (apply-move :sheep state to object)
                          :wolf (apply-move :wolf state to))]
