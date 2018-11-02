@@ -42,6 +42,6 @@
 (defn render-game [state]
   (vector (vec (concat
                  (render-chessboard (case (:result state) :ongoing "#526F35" :won "#009999" :lost "#990000"))
-                 (if (some? (:dragging state)) (vector (map #(render-square % "#279f27") (map second (game/possible-moves-for state (get (:sheep state) (:dragging state)) :sheep)))))
+                 (if (some? (:dragging state)) (vector (map #(render-square % "#279f27") (game/possible-moves-for state (get (:sheep state) (:dragging state)) :sheep))))
                  (vector (map #(render-sheep state %)(:sheep state)))
                  (render-wolf (:wolf state))))))

@@ -42,12 +42,14 @@
         (vec-equals? [rx ry] (:location (:wolf state)))))))
 
 (defn possible-moves-for [state object-to-move type]
-  (let [all-moves (combo/cartesian-product [object-to-move] (type moves))]
+  (let [all-moves (type moves)]
     (reduce
-      (fn [valid-moves [from delta]]
+      (fn [valid-moves delta]
+        ; (println delta object-to-move)
         (let [applied-move (add-vec (:location object-to-move) delta)]
+          ; (println applied-move)
           (if (can-move? state applied-move)
-            (conj valid-moves [object-to-move applied-move])
+            (conj valid-moves applied-move)
             valid-moves)))
       []
       all-moves)))
@@ -74,10 +76,11 @@
 (defmulti apply-move (fn [type state move] type))
 
 (defmethod apply-move :sheep [type state to sheep-to-move]
-  (println sheep-to-move)
-  (assoc-in state [:sheep (:index sheep-to-move) :location]  to))
+  ; (println "applymove" sheep-to-move state)
+  (assoc-in state [:sheep (:index sheep-to-move) :location] to))
 
 (defmethod apply-move :wolf [type state to]
+  ; (println to)
   (assoc-in state [:wolf :location] to))
 
 (defn id-of-location [state [sx sy]]
@@ -90,7 +93,7 @@
 
 (defn check-move [state coordinate]
   (let [dragging-sheep (get (:sheep state) (:dragging state))
-        possible-places-for-sheep (map second (possible-moves-for state dragging-sheep :sheep))]
+        possible-places-for-sheep (possible-moves-for state dragging-sheep :sheep)]
     (case dragging-sheep
        nil [false state]
        (let [valid-move (equal-vector-in-list? possible-places-for-sheep coordinate)
@@ -101,18 +104,24 @@
              [true (apply-move :sheep stopped-dragging-state coordinate dragging-sheep)]
              [false stopped-dragging-state])))))
 
-(def wolf-won-score 100)
-(def wolf-lost-score -100)
 
 (defn value-of-board [state]
-  (let [initial-score (- 100 (* 10 (-> state (:wolf) (:location) (second))))]
+  (let [initial-score (- 100 (* 10 (-> state (:wolf) (:location) (get 1))))]
     (+ initial-score (case (game-result state)
                        :won -100
                        :lost 100
                        :ongoing 0))))
 
+(defn prefix-sequence [prefix sequence]
+  (map
+    #(vector prefix %)
+    sequence))
 
-(defn value-of-move [type state [object to] depth]
+(defn print-and-return [v]
+  (println v)
+  v)
+
+(defn value-of-move [type state object to depth]
   (if (= depth 0)
     (value-of-board state)
     (let [applied-move (case type
@@ -120,29 +129,43 @@
                          :wolf (apply-move :wolf state to))]
 
       (case (game-result applied-move)
-        :won wolf-lost-score
-        :lost wolf-won-score
+        :won 100
+        :lost -100
         :ongoing (case type
-                   :wolf (let [wolf-moves (possible-moves-for applied-move (:wolf applied-move) :wolf)
-                               move-scores (map #(value-of-move :wolf applied-move % (dec depth)) wolf-moves)
-                               best-wolf-move (apply max move-scores)]
+
+                   :sheep (let [wolf-moves (possible-moves-for applied-move (:wolf applied-move) :wolf)
+                                move-scores (map
+                                              #(value-of-move :wolf applied-move (:wolf applied-move) % (dec depth))
+                                              wolf-moves)
+                                ; _ (println move-scores)
+                                best-wolf-move (apply max move-scores)]
                            best-wolf-move)
-                   :sheep (let [sheep-moves (mapcat #(possible-moves-for applied-move % :sheep) (:sheep applied-move))
-                                move-scores (map #(value-of-move :sheep applied-move % (dec depth)) sheep-moves)
-                                best-sheep-move (apply min move-scores)]
+
+                   :wolf (let [sheep-moves (mapcat
+                                             #(prefix-sequence % (possible-moves-for applied-move % :sheep))
+                                             (:sheep applied-move))
+                               ; _2 (println sheep-moves)
+                               move-scores (map
+                                             (fn [[sheep-to-move move]] (value-of-move :sheep applied-move sheep-to-move move (dec depth)))
+                                             sheep-moves)
+                               ; _ (println "SSS" move-scores)
+                               best-sheep-move (apply min move-scores)]
                             best-sheep-move))))))
 
 
 (defn minimax [state]
   (let [wolf-moves (possible-moves-for state (:wolf state) :wolf)
-        values-of-moves (map (fn [move] [move (value-of-move :wolf state move 6)]) wolf-moves)
-        best-move (apply max-key #(second %) values-of-moves)]
+        values-of-moves (map
+                          (fn [move] (vector move (value-of-move :wolf state (:wolf state) move 6)))
+                          wolf-moves)
+        _3 (println values-of-moves)
+        best-move (apply max-key #(get 1 %) values-of-moves)]
     best-move))
 
 (defn handle-release-click [state coordinate]
   (let [[move-done after-move] (check-move state coordinate)
          result (game-result after-move)
-         [[wolf best-move-for-wolf] score] (minimax after-move)]
+         [best-move-for-wolf score] (minimax after-move)]
     (print "Minimax" best-move-for-wolf score)
     (case result
       :won (assoc after-move :result :won)
@@ -156,6 +179,6 @@
                (case clicked-sheep
                  nil state
                  (-> state
-                   (assoc-in ,,, [:sheep (:index clicked-sheep)] (assoc clicked-sheep :dragging true))
-                   (assoc ,,, :dragging (:index clicked-sheep)))))
+                   (assoc-in [:sheep (:index clicked-sheep)] (assoc clicked-sheep :dragging true))
+                   (assoc :dragging (:index clicked-sheep)))))
     state))
